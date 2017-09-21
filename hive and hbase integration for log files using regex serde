@@ -1,0 +1,32 @@
+DROP TABLE IF EXISTS apache_common_log;
+ 
+CREATE TABLE apache_common_log (
+  host STRING,
+  identity STRING,
+  user STRING,
+  time STRING,
+  request STRING,
+  status STRING,
+  size STRING
+  )
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.RegexSerDe'
+WITH SERDEPROPERTIES (
+  "input.regex" = "([^ ]*) ([^ ]*) ([^ ]*) (-|\\[[^\\]]*\\]) ([^ \"]*|\"[^\"]*\") (-|[0-9]*) (-|[0-9]*)",
+  "output.format.string" = "%1$s %2$s %3$s %4$s %5$s %6$s %7$s"
+)
+STORED AS TEXTFILE;
+ 
+LOAD DATA LOCAL INPATH "/home/siva/commonlog" INTO TABLE apache_common_log;
+ 
+
+
+create table hbase_table_access(host String, referer string, count int)
+STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
+WITH SERDEPROPERTIES ("hbase.columns.mapping" = ":key,cf1:referer,cf1:count")
+TBLProperties ("hbase.table.name" = "log");
+
+
+insert overwrite table hbase_table_access select host,referer,count(*) 
+from apache_combined_log 
+where status =404 
+group by host,referer;
